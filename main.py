@@ -201,8 +201,8 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
         # Function to convert time range to datetime
     def convert_to_datetime(time_range, date):
         start_hour = time_range.split(' - ')[0]  # Split the string and take the first part
-        datetime_str = f"{date} {start_hour}"   # Form the datetime string
-        return pd.to_datetime(datetime_str)     # Convert to datetime object
+        datetime_str = f"{date} {start_hour}"    # Form the datetime string
+        return pd.to_datetime(datetime_str)      # Convert to datetime object
 
     # Apply the conversion function to the dataframe
     df['date'] = df[0].apply(lambda x: convert_to_datetime(x, delivery_date_str))
@@ -216,6 +216,8 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
     if df.iloc[0]['date'] == df.iloc[-1]['date']:
         # Remove the last row
         df = df.iloc[:-1]
+
+    print(f"Collected for starting datetime of {df.iloc[0]['date']}")
 
     return df
     #save the result:
@@ -328,7 +330,7 @@ def collect_auction_data(start_date, end_date)->None:
                 os.mkdir(f"./data/{market}/{sub_market}/{data_type}")
 
             df = pd.DataFrame()
-            for date in pd.date_range(start=start_date, end=end_date, tz='CET'):
+            for date in pd.date_range(start=start_date, end=end_date):
                 date_str = date.strftime("%Y-%m-%d")
                 print(f"Fetching {market} ({sub_market}) data for {date_str}")
                 df_i = scrape_auction(
@@ -365,7 +367,7 @@ def collect_intraday_data(start_date, end_date)->None:
 
             df = pd.DataFrame()
 
-            for date in pd.date_range(start=start_date, end=end_date, tz='CET'):
+            for date in pd.date_range(start=start_date, end=end_date):
                 date_str = date.strftime("%Y-%m-%d")
                 print(f"Fetching {market} data for {area} for {date_str}")
 
@@ -390,7 +392,10 @@ def collect_intraday_data(start_date, end_date)->None:
 if __name__ == '__main__':
 
     # to assume that data was updated we always fetch the last 4 days
-    end_date = pd.Timestamp(datetime.today()).tz_localize('CET')
+    end_date = pd.Timestamp(datetime.today())
+    # Normalize the timestamp to remove time (set to midnight)
+    end_date_normalized = end_date.normalize()
+
     start_date = end_date-timedelta(days=4)
 
     collect_auction_data(start_date, end_date)
