@@ -161,7 +161,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
     html=get_page_headless_restarts(url)
 
     #read it with BS
-    bs=BeautifulSoup(html)
+    bs=BeautifulSoup(html, features="lxml")
 
     #extract all tables and put in array t
     tables=bs.find_all('table')
@@ -314,9 +314,9 @@ def collect_auction_data(start_date, end_date)->None:
 
     for sub_market in [
         'day_ahead',
-        'intraday_auction_1',
-        'intraday_auction_2',
-        'intraday_auction_3'
+        # 'intraday_auction_1',
+        # 'intraday_auction_2',
+        # 'intraday_auction_3'
     ]:
         for data_type in ['prices','volumes']:
 
@@ -390,9 +390,9 @@ def collect_intraday_data(start_date, end_date)->None:
 if __name__ == '__main__':
 
     # to assume that data was updated we always fetch the last 4 days
-    end_date = pd.Timestamp(datetime.today(), tz='Europe/Brussels')
+    end_date = pd.Timestamp(datetime.today())
     start_date = end_date-timedelta(days=4)
 
     collect_auction_data(start_date, end_date)
 
-    collect_intraday_data(start_date, end_date)
+    # collect_intraday_data(start_date, end_date)
