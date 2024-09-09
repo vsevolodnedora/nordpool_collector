@@ -328,7 +328,7 @@ def collect_auction_data(start_date, end_date)->None:
                 os.mkdir(f"./data/{market}/{sub_market}/{data_type}")
 
             df = pd.DataFrame()
-            for date in pd.date_range(start=start_date, end=end_date):
+            for date in pd.date_range(start=start_date, end=end_date, tz='CET'):
                 date_str = date.strftime("%Y-%m-%d")
                 print(f"Fetching {market} ({sub_market}) data for {date_str}")
                 df_i = scrape_auction(
@@ -365,7 +365,7 @@ def collect_intraday_data(start_date, end_date)->None:
 
             df = pd.DataFrame()
 
-            for date in pd.date_range(start=start_date, end=end_date):
+            for date in pd.date_range(start=start_date, end=end_date, tz='CET'):
                 date_str = date.strftime("%Y-%m-%d")
                 print(f"Fetching {market} data for {area} for {date_str}")
 
@@ -390,7 +390,7 @@ def collect_intraday_data(start_date, end_date)->None:
 if __name__ == '__main__':
 
     # to assume that data was updated we always fetch the last 4 days
-    end_date = pd.Timestamp(datetime.today())
+    end_date = pd.Timestamp(datetime.today()).tz_localize('CET')
     start_date = end_date-timedelta(days=4)
 
     collect_auction_data(start_date, end_date)
