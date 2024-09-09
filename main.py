@@ -22,6 +22,21 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import StaleElementReferenceException
 from webdriver_manager.chrome import ChromeDriverManager
 
+def format(cell):
+    """Returns the text of cell"""
+
+    if cell.content is None:
+        return cell.text
+    if len(cell.content)==0:
+        return ''
+    s = ''
+    s = ' '.join([str(c) for c in cell.content])
+
+    #if there is undesired contents, replace it here:
+    s = s.replace('\xa0','')
+    s = s.replace('\n','')
+    return s
+
 def html_to_table(tbl):
     """Extracts the table from a table found with BS"""
 
@@ -164,6 +179,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
             value = value.replace('\xa0', '').replace(',', '.')
             return float(value)
         return None  # Return NaN for empty or invalid input strings
+
     for col in df.columns[1:]:
         df[col] = df[col].apply(convert_to_float)
 
