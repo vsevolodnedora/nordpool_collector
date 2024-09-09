@@ -1,0 +1,18 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+requests = "*"                   # HTTP for Humans
+beautifulsoup4 = "*"             # Library for pulling data out of HTML and XML files
+lxml = "*"                       # Library for processing XML and HTML
+pandas = "*"                     # Data manipulation and analysis
+selenium = "*"                   # Automates browsers
+webdriver-manager = "*"          # Manages the browser driver for Selenium
+
+[dev-packages]
+
+[requires]
+python_version = "3.11"
+python_full_version = "3.11.5"
