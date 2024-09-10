@@ -172,7 +172,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
 
     df = pd.DataFrame(t)
 
-    print(f"Initial collected data first step {df.iloc[0][0]}")
+    print(f"Initial collected data first step {df.iloc[0][0]} last two: {df.iloc[-2][0]} and {df.iloc[-1][0]} ")
 
 
     # Function to convert strings with non-breaking spaces and commas as decimals to float
@@ -211,7 +211,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
     df['date'] = df[0].apply(lambda x: convert_to_datetime(x, delivery_date_str))
     df.drop(0, axis=1, inplace=True)
 
-    print(f"Collected for starting datetime of {df.iloc[0]['date']}")
+    print(f"Collected for starting datetime of {df.iloc[0]['date']} last two: {df.iloc[-2]['date']} and {df.iloc[-1]['date']}")
 
     # reorder
     cols = ['date'] + [col for col in df.columns if col != 'date']
@@ -222,7 +222,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
         # Remove the last row
         df = df.iloc[:-1]
 
-    print(f"After parsing first date {df.iloc[0]['date']}")
+    print(f"After parsing first date {df.iloc[0]['date']} last two: {df.iloc[-2]['date']} and {df.iloc[-1]['date']}")
 
     return df
     #save the result:
