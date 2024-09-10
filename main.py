@@ -172,6 +172,9 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
 
     df = pd.DataFrame(t)
 
+    print(f"Initial collected data first step {df.iloc[0][0]}")
+
+
     # Function to convert strings with non-breaking spaces and commas as decimals to float
     def convert_to_float(value):
         if isinstance(value, str) and value.strip():  # Check if the string is not empty and not just whitespace
@@ -208,6 +211,8 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
     df['date'] = df[0].apply(lambda x: convert_to_datetime(x, delivery_date_str))
     df.drop(0, axis=1, inplace=True)
 
+    print(f"Collected for starting datetime of {df.iloc[0]['date']}")
+
     # reorder
     cols = ['date'] + [col for col in df.columns if col != 'date']
     df = df[cols]
@@ -217,7 +222,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
         # Remove the last row
         df = df.iloc[:-1]
 
-    print(f"Collected for starting datetime of {df.iloc[0]['date']}")
+    print(f"After parsing first date {df.iloc[0]['date']}")
 
     return df
     #save the result:
@@ -385,7 +390,7 @@ def collect_intraday_data(start_date, end_date)->None:
 
             fname = f'./data/{market}/{area}/{area}_{datetime.today().strftime("%Y-%m-%d")}_{frequency}.csv'
             df.to_csv(fname, index=False)
-            
+
             print(f"Saved data to {fname}")
             print("\n")
 
