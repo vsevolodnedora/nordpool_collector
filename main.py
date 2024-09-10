@@ -385,6 +385,7 @@ def collect_intraday_data(start_date, end_date)->None:
 
             fname = f'./data/{market}/{area}/{area}_{datetime.today().strftime("%Y-%m-%d")}_{frequency}.csv'
             df.to_csv(fname, index=False)
+            
             print(f"Saved data to {fname}")
             print("\n")
 
