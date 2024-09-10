@@ -22,7 +22,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import StaleElementReferenceException
 from webdriver_manager.chrome import ChromeDriverManager
 
-def format(cell):
+def format_cell(cell):
     """Returns the text of cell"""
 
     if cell.content is None:
@@ -57,7 +57,7 @@ def html_to_table(tbl):
 
         #iterate over cells
         for cell in cells:
-            cell = format(cell)
+            cell = format_cell(cell)
             r.append(cell)
         a.append(r)
     return a
@@ -169,6 +169,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
     t=[]
     for tbl in tables:
         t.extend(html_to_table(tbl))
+        print('\t', t)
 
     df = pd.DataFrame(t)
 
