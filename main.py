@@ -227,7 +227,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
         else:
             return row + pd.Timedelta(hours=1)
     # Apply the function to the datetime column
-    df['datetime'] = df['datetime'].apply(adjust_hour)
+    df['date'] = df['date'].apply(adjust_hour)
 
 
     # Check if the first and last row have the same 'date'
