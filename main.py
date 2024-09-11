@@ -267,7 +267,7 @@ def scrape_intraday(delivery_date_str, category, delivery_ara)->pd.DataFrame:
     html=get_page_headless_restarts(url)
 
     #read it with BS
-    bs=BeautifulSoup(html)
+    bs=BeautifulSoup(html, features="lxml")
 
     #extract all tables and put in array t
     tables=bs.find_all('table')
@@ -292,8 +292,8 @@ def scrape_intraday(delivery_date_str, category, delivery_ara)->pd.DataFrame:
     print("LAST COLUMNS: ")
     print(df[df.columns[-2]])
     # if the data is absent
-    df[df.columns[-2]] = pd.to_datetime(df[df.columns[-2]], errors='coerce', format='%Y-%m-%d %H:%M:%S')
-    df[df.columns[-1]] = pd.to_datetime(df[df.columns[-1]], errors='coerce', format='%Y-%m-%d %H:%M:%S')
+    df[df.columns[-2]] = pd.to_datetime(df[df.columns[-2]], errors='coerce', format='%d-%M-%Y %H:%M:%S')
+    df[df.columns[-1]] = pd.to_datetime(df[df.columns[-1]], errors='coerce', format='%d-%M-%Y %H:%M:%S')
 
     columns = ["high", "low", "VWAP", "open", "close", "VWAP1H", "VWAP3H", "buy_volume", "sell_volume", "transaction_volume",
                "first_trade_date", "last_trade_date"] # Note, Trading dates are in CET time not UTC!
