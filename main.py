@@ -288,6 +288,9 @@ def scrape_intraday(delivery_date_str, category, delivery_ara)->pd.DataFrame:
     for col in df.columns[1:-2]: #last to columns are date-time
         df[col] = df[col].apply(convert_to_float)
 
+
+    print("LAST COLUMNS: ")
+    print(df[df.columns[-2]])
     # if the data is absent
     df[df.columns[-2]] = pd.to_datetime(df[df.columns[-2]], errors='coerce', format='%Y-%m-%d %H:%M:%S')
     df[df.columns[-1]] = pd.to_datetime(df[df.columns[-1]], errors='coerce', format='%Y-%m-%d %H:%M:%S')
