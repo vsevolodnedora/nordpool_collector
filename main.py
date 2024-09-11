@@ -141,23 +141,23 @@ def get_page_headless_restarts(url:str)->str:
 
 ''' ------------------------------------ '''
 # GitHub for some reason fetches data for wrong timesteps (starting at 23.00 instead of 00:00, possible time-zone issue)
-def adjust_df_for_timeshifts(df:pd.DataFrame) -> pd.DataFrame:
-    # Check if the first datetime entry is at 23:00 (in case Gidhub gives first date at 23:00 for some reason)
+def adjust_df_for_timeshifts(df: pd.DataFrame) -> pd.DataFrame:
+    # Check if the first datetime entry is at 23:00
     if df.loc[0, 'date'].hour == 23:
-        print(f"Warning. Wrong initial datetime. {df.iloc[0]['date']} Adding one hour")
+        print(f"Warning: Wrong initial datetime {df.iloc[0]['date']}. Adding one hour.")
+
     def adjust_hour(row):
         if row.hour == 23:
             return row.replace(hour=0)
         else:
             return row + pd.Timedelta(hours=1)
+
     # Apply the function to the datetime column
     df['date'] = df['date'].apply(adjust_hour)
 
-
     # Check if the first and last row have the same 'date'
-    if df.iloc[0]['date'] == df.iloc[-1]['date'] or df.loc[-1, 'date'].hour != 23:
-        # Remove the last row
-        print(f"Warning. Initial datetime={df.iloc[0]['date']} is the same as the last one {df.iloc[-1]['date']}. Removing the last one")
+    if df.iloc[0]['date'] == df.iloc[-1]['date'] or df.iloc[-1]['date'].hour != 23:
+        print(f"Warning: Initial datetime {df.iloc[0]['date']} is the same as the last one {df.iloc[-1]['date']}. Removing the last one.")
         df = df.iloc[:-1]
 
     print(f"After parsing first date {df.iloc[0]['date']} last two: {df.iloc[-2]['date']} and {df.iloc[-1]['date']}")
