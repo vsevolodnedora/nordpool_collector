@@ -311,11 +311,7 @@ def scrape_intraday(delivery_date_str, category, delivery_ara)->pd.DataFrame:
     cols = ['date'] + [col for col in df.columns if col != 'date']
     df = df[cols]
 
-    # df_cleaned = df.dropna(subset=df.columns[1:], how='all')
-    # Check if the first and last row have the same 'date'
-    if df.iloc[0]['date'] == df.iloc[-1]['date']:
-        # Remove the last row
-        df = df.iloc[:-1]
+    df = adjust_df_for_timeshifts(df)
 
     # df.to_csv(f'data/day_ahead_prices_{delivery_date_str}.csv', index=False)
     return df
@@ -382,10 +378,12 @@ def collect_intraday_data(start_date, end_date)->None:
         os.mkdir(f"./data/{market}/")
 
         for area in [
-            "EE","LT","LV", # Baltic
-            "50HZ","AMP","AT","BE","FR","GER","NL","PL","TBW","TTG", # CWE
-            "DK1","DK2","FI","NO1","NO2","NO3","NO4","NO5","SE1","SE2","SE3","SE4" # Nordic
+            "50HZ",
+            # "EE","LT","LV", # Baltic
+            # "50HZ","AMP","AT","BE","FR","GER","NL","PL","TBW","TTG", # CWE
+            # "DK1","DK2","FI","NO1","NO2","NO3","NO4","NO5","SE1","SE2","SE3","SE4" # Nordic
             # "GER"
+
         ]:
             time.sleep(5) # to prevent NordPool from blocking the request based on frequency
 
@@ -425,4 +423,4 @@ if __name__ == '__main__':
 
     collect_auction_data(start_date, end_date)
 
-    # collect_intraday_data(start_date, end_date)
+    collect_intraday_data(start_date, end_date)
