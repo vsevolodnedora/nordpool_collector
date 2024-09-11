@@ -219,7 +219,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
     df = df[cols]
 
     # Check if the first datetime entry is at 23:00 (in case Gidhub gives first date at 23:00 for some reason)
-    if df.loc[0, 'datetime'].hour == 23:
+    if df.loc[0, 'date'].hour == 23:
         print(f"Warning. Wrong initial datetime. {df.iloc[0]['date']} Adding one hour")
     def adjust_hour(row):
         if row.hour == 23:
