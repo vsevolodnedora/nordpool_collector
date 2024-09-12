@@ -88,20 +88,23 @@ def safe_webdriver_initialization()-> webdriver.Chrome:
         driver = None
     return driver
 
-def load_page_headless(url:str, restarts:int) -> str or None:
+def load_page_headless(url:str, restarts:int, delay:int) -> str or None:
 
-    with safe_webdriver_initialization() as driver:
-        if driver is None:
-            raise BaseException("WebDriver not initialized")
+    driver = safe_webdriver_initialization()
+    if not driver is None:
+    # with safe_webdriver_initialization() as driver:
+    #     if driver is None:
+    #         raise BaseException("WebDriver not initialized")
         # driver.implicitly_wait(3)
         driver.get(url)
         # driver.implicitly_wait(3)
         # driver.implicitly_wait(10)  # Wait for up to 20 seconds for elements to appear
         try:
-            wait = WebDriverWait(driver, 60)  # Wait for up to 20 seconds
+            wait = WebDriverWait(driver, delay)  # Wait for up to 20 seconds
             table_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.dx-datagrid-table-fixed")))
             table_html = table_element.get_attribute('outerHTML')
             del table_html
+
             # -------------------------------------------------
             for i in range(1000):
                 page_source = driver.page_source
@@ -116,7 +119,7 @@ def load_page_headless(url:str, restarts:int) -> str or None:
                     1
                 )
                 # if data is loaded return
-                if len(s) > 10000:
+                if len(s) > 0:
                     print(f'Fetching successful i={i} len(s)={len(s)}')
                     return s
 
@@ -125,19 +128,30 @@ def load_page_headless(url:str, restarts:int) -> str or None:
         except Exception as e:
             print(f"Error '{e}' during scraping: {url} (Restarts {restarts})")
             return None
-
+    else:
+        BaseException("WebDriver not initialized")
         # --------------------------------------------------
         # time.sleep(2)
     # except TimeoutException:
     #     print("Timed out waiting for table to load.")
 
 def get_page_headless_restarts(url:str)->str:
-    restarts = 3
+    restarts = 5
+
     for i in range(restarts):
-        s = load_page_headless(url, restarts)
+        try:
+            s = load_page_headless(
+                url, restarts, delay=10*(i+1)
+            )
+        except Exception as e:
+            print(f"Attemt to fetch the data failed. Attempt {i+1} / {restarts} with wait {10*(i+1)} "
+                  f"gave error Error '{e}' during scraping: {url}")
+            continue
+
         if s is not None:
             return s
-    raise IOError(f"Failed to load page:{url} N={i} times")
+
+    raise IOError(f"Failed to load page:{url} N={i}/{restarts} times")
 
 ''' ------------------------------------ '''
 # GitHub for some reason fetches data for wrong timesteps (starting at 23.00 instead of 00:00, possible time-zone issue)
@@ -160,7 +174,7 @@ def adjust_df_for_timeshifts(df: pd.DataFrame) -> pd.DataFrame:
         print(f"Warning: Initial datetime {df.iloc[0]['date']} is the same as the last one {df.iloc[-1]['date']}. Removing the last one.")
         df = df.iloc[:-1]
 
-    print(f"After parsing first date {df.iloc[0]['date']} last two: {df.iloc[-2]['date']} and {df.iloc[-1]['date']}")
+    # print(f"After parsing first date {df.iloc[0]['date']}")
 
     return df
 
@@ -196,7 +210,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
 
     df = pd.DataFrame(t)
 
-    print(f"Initial collected data first step {df.iloc[0][0]} last two: {df.iloc[-2][0]} and {df.iloc[-1][0]} ")
+    print(f"Initial collected data first step {df.iloc[0][0]} df.shape={df.shape}")
 
 
     # Function to convert strings with non-breaking spaces and commas as decimals to float
@@ -235,7 +249,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
     df['date'] = df[0].apply(lambda x: convert_to_datetime(x, delivery_date_str))
     df.drop(0, axis=1, inplace=True)
 
-    print(f"Collected for starting datetime of {df.iloc[0]['date']} last two: {df.iloc[-2]['date']} and {df.iloc[-1]['date']}")
+    print(f"Collected for starting datetime of {df.iloc[0]['date']} last two: df.shape={df.shape}")
 
     # reorder
     cols = ['date'] + [col for col in df.columns if col != 'date']
@@ -264,13 +278,13 @@ def scrape_intraday(delivery_date_str, category, delivery_ara)->pd.DataFrame:
     # response = requests.get(url, headers=headers)
     # response.raise_for_status()  # Raises an HTTPError for bad responses
     # html=response.text
-    html=get_page_headless_restarts(url)
+    html = get_page_headless_restarts(url)
 
     #read it with BS
-    bs=BeautifulSoup(html, features="lxml")
+    bs=BeautifulSoup(html)
 
     #extract all tables and put in array t
-    tables=bs.find_all('table')
+    tables = bs.find_all('table')
 
     t=[]
     for tbl in tables:
@@ -391,10 +405,8 @@ def collect_intraday_data(start_date, end_date)->None:
             "EE","LT","LV", # Baltic
             "50HZ","AMP","AT","BE","FR","GER","NL","PL","TBW","TTG", # CWE
             "DK1","DK2","FI","NO1","NO2","NO3","NO4","NO5","SE1","SE2","SE3","SE4" # Nordic
-            # "GER"
-
         ]:
-            time.sleep(5) # to prevent NordPool from blocking the request based on frequency
+            time.sleep(10) # to prevent NordPool from blocking the request based on frequency
 
             df = pd.DataFrame()
 
