@@ -192,7 +192,7 @@ def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFra
     t=[]
     for tbl in tables:
         t.extend(html_to_table(tbl))
-        print('\t', t)
+        # print('\t', t)
 
     df = pd.DataFrame(t)
 
@@ -289,7 +289,7 @@ def scrape_intraday(delivery_date_str, category, delivery_ara)->pd.DataFrame:
         df[col] = df[col].apply(convert_to_float)
 
 
-    print("LAST COLUMNS: ")
+    # print("LAST COLUMNS: ")
     # print(df[df.columns[-2]])
     # if the data is absent
     try:
@@ -345,9 +345,9 @@ def collect_auction_data(start_date, end_date)->None:
 
     for sub_market in [
         'day_ahead',
-        # 'intraday_auction_1',
-        # 'intraday_auction_2',
-        # 'intraday_auction_3'
+        'intraday_auction_1',
+        'intraday_auction_2',
+        'intraday_auction_3'
     ]:
         for data_type in ['prices','volumes']:
 
@@ -387,10 +387,10 @@ def collect_intraday_data(start_date, end_date)->None:
         os.mkdir(f"./data/{market}/")
 
         for area in [
-            "50HZ",
-            # "EE","LT","LV", # Baltic
-            # "50HZ","AMP","AT","BE","FR","GER","NL","PL","TBW","TTG", # CWE
-            # "DK1","DK2","FI","NO1","NO2","NO3","NO4","NO5","SE1","SE2","SE3","SE4" # Nordic
+            # "50HZ",
+            "EE","LT","LV", # Baltic
+            "50HZ","AMP","AT","BE","FR","GER","NL","PL","TBW","TTG", # CWE
+            "DK1","DK2","FI","NO1","NO2","NO3","NO4","NO5","SE1","SE2","SE3","SE4" # Nordic
             # "GER"
 
         ]:
