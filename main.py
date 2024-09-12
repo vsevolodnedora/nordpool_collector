@@ -424,6 +424,6 @@ if __name__ == '__main__':
 
     start_date = end_date-timedelta(days=4)
 
-    # collect_auction_data(start_date, end_date)
+    collect_auction_data(start_date, end_date)
 
     collect_intraday_data(start_date, end_date)
