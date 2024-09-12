@@ -290,10 +290,16 @@ def scrape_intraday(delivery_date_str, category, delivery_ara)->pd.DataFrame:
 
 
     print("LAST COLUMNS: ")
-    print(df[df.columns[-2]])
+    # print(df[df.columns[-2]])
     # if the data is absent
-    df[df.columns[-2]] = pd.to_datetime(df[df.columns[-2]], errors='coerce', format='%d-%M-%Y %H:%M:%S')
-    df[df.columns[-1]] = pd.to_datetime(df[df.columns[-1]], errors='coerce', format='%d-%M-%Y %H:%M:%S')
+    try:
+        df[df.columns[-2]] = pd.to_datetime(df[df.columns[-2]], errors='coerce', format='%d.%M.%Y %H:%M:%S')
+    except Exception as e:
+        print("Failed to parts the first trading date:", e)
+    try:
+        df[df.columns[-1]] = pd.to_datetime(df[df.columns[-1]], errors='coerce', format='%d.%M.%Y %H:%M:%S')
+    except Exception as e:
+        print("Failed to parts the last trading date:", e)
 
     columns = ["high", "low", "VWAP", "open", "close", "VWAP1H", "VWAP3H", "buy_volume", "sell_volume", "transaction_volume",
                "first_trade_date", "last_trade_date"] # Note, Trading dates are in CET time not UTC!
