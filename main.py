@@ -88,52 +88,47 @@ def safe_webdriver_initialization()-> webdriver.Chrome:
         driver = None
     return driver
 
-def load_page_headless(url:str, restarts:int, delay:int) -> str or None:
+def load_page_headless(url:str, restarts:int, delay:int) -> "str | None":
 
     driver = safe_webdriver_initialization()
-    if not driver is None:
-    # with safe_webdriver_initialization() as driver:
-    #     if driver is None:
-    #         raise BaseException("WebDriver not initialized")
-        # driver.implicitly_wait(3)
+    if driver is None:
+        print("WebDriver not initialized")
+        return None
+
+    try:
         driver.get(url)
-        # driver.implicitly_wait(3)
-        # driver.implicitly_wait(10)  # Wait for up to 20 seconds for elements to appear
-        try:
-            wait = WebDriverWait(driver, delay)  # Wait for up to 20 seconds
+        wait = WebDriverWait(driver, delay)  # Wait for up to `delay` seconds
+        table_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.dx-datagrid-table-fixed")))
+        table_html = table_element.get_attribute('outerHTML')
+        del table_html
+
+        # -------------------------------------------------
+        for i in range(1000):
+            page_source = driver.page_source
             table_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.dx-datagrid-table-fixed")))
             table_html = table_element.get_attribute('outerHTML')
             del table_html
+            # extract data
+            s = find_string_between(
+                page_source,
+                '<table class="dx-datagrid-table dx-datagrid-table-fixed" .*?>',
+                '</table>',
+                1
+            )
+            # if data is loaded return
+            if len(s) > 0:
+                print(f'Fetching successful i={i} len(s)={len(s)}')
+                return s
 
-            # -------------------------------------------------
-            for i in range(1000):
-                page_source = driver.page_source
-                table_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "table.dx-datagrid-table-fixed")))
-                table_html = table_element.get_attribute('outerHTML')
-                del table_html
-                # extract data
-                s = find_string_between(
-                    page_source,
-                    '<table class="dx-datagrid-table dx-datagrid-table-fixed" .*?>',
-                    '</table>',
-                    1
-                )
-                # if data is loaded return
-                if len(s) > 0:
-                    print(f'Fetching successful i={i} len(s)={len(s)}')
-                    return s
+        raise IOError("After 1000 attempts failed to extract table from the string")
 
-            raise IOError("After 1000 attempts failed to extract table from the string")
-
-        except Exception as e:
-            print(f"Error '{e}' during scraping: {url} (Restarts {restarts})")
-            return None
-    else:
-        BaseException("WebDriver not initialized")
-        # --------------------------------------------------
-        # time.sleep(2)
-    # except TimeoutException:
-    #     print("Timed out waiting for table to load.")
+    except Exception as e:
+        print(f"Error '{e}' during scraping: {url} (Restarts {restarts})")
+        return None
+    finally:
+        # Always release the browser, otherwise leaked Chrome processes pile up
+        # over a run (one driver is spawned per fetch attempt) and exhaust memory.
+        driver.quit()
 
 def get_page_headless_restarts(url:str)->str:
     restarts = 5
@@ -156,6 +151,12 @@ def get_page_headless_restarts(url:str)->str:
 ''' ------------------------------------ '''
 # GitHub for some reason fetches data for wrong timesteps (starting at 23.00 instead of 00:00, possible time-zone issue)
 def adjust_df_for_timeshifts(df: pd.DataFrame) -> pd.DataFrame:
+    # Guard against empty frames (failed/partial scrape) and stale indices left
+    # over from concatenation, so the df.loc[0, ...] / iloc[-1] access is safe.
+    if df.empty:
+        return df
+    df = df.reset_index(drop=True)
+
     # Check if the first datetime entry is at 23:00
     if df.loc[0, 'date'].hour == 23:
         print(f"Warning: Wrong initial datetime {df.iloc[0]['date']}. Adding one hour.")
@@ -177,6 +178,27 @@ def adjust_df_for_timeshifts(df: pd.DataFrame) -> pd.DataFrame:
     # print(f"After parsing first date {df.iloc[0]['date']}")
 
     return df
+
+def infer_frequency_tag(dates) -> str:
+    """Best-effort frequency label for the output filename.
+
+    pandas' ``inferred_freq`` returns ``None`` for irregular or very short
+    series (e.g. the 30-min intraday auction 3, or any day with a gap), which
+    previously produced meaningless ``..._None.csv`` filenames. Fall back to the
+    most common spacing between consecutive timestamps so the tag stays useful.
+    """
+    idx = pd.DatetimeIndex(pd.Series(dates).dropna().sort_values().unique())
+    if len(idx) >= 2:
+        freq = idx.inferred_freq
+        if freq is not None:
+            return freq
+        minutes = int(idx.to_series().diff().dropna().mode().iloc[0].total_seconds() // 60)
+        if minutes > 0:
+            if minutes % 60 == 0:
+                hours = minutes // 60
+                return "h" if hours == 1 else f"{hours}h"
+            return f"{minutes}min"
+    return "unknown"
 
 def scrape_auction(delivery_date_str, category, sub_category, areas)->pd.DataFrame:
 
@@ -292,6 +314,19 @@ def scrape_intraday(delivery_date_str, category, delivery_ara)->pd.DataFrame:
 
     df = pd.DataFrame(t)
 
+    # Nord Pool added a non-data "Trades" link column to the intraday grid (one
+    # per hourly row). Drop any such label column and renumber, so the remaining
+    # columns line up with the expected schema (time + 12 statistics) again.
+    # Kept strict on purpose: if the schema drifts further, the float conversion
+    # below should raise so the zone is skipped and the freshness check fails,
+    # rather than silently writing null columns.
+    label_cols = [c for c in df.columns
+                  if df[c].astype(str).str.strip().eq("Trades").any()]
+    if label_cols:
+        print(f"Dropping non-data column(s) {label_cols} ('Trades' link)")
+        df = df.drop(columns=label_cols)
+        df.columns = range(df.shape[1])
+
     # Function to convert strings with non-breaking spaces and commas as decimals to float
     def convert_to_float(value):
         if isinstance(value, str) and value.strip():  # Check if the string is not empty and not just whitespace
@@ -307,11 +342,11 @@ def scrape_intraday(delivery_date_str, category, delivery_ara)->pd.DataFrame:
     # print(df[df.columns[-2]])
     # if the data is absent
     try:
-        df[df.columns[-2]] = pd.to_datetime(df[df.columns[-2]], errors='coerce', format='%d.%M.%Y %H:%M:%S')
+        df[df.columns[-2]] = pd.to_datetime(df[df.columns[-2]], errors='coerce', format='%d.%m.%Y %H:%M:%S')
     except Exception as e:
         print("Failed to parts the first trading date:", e)
     try:
-        df[df.columns[-1]] = pd.to_datetime(df[df.columns[-1]], errors='coerce', format='%d.%M.%Y %H:%M:%S')
+        df[df.columns[-1]] = pd.to_datetime(df[df.columns[-1]], errors='coerce', format='%d.%m.%Y %H:%M:%S')
     except Exception as e:
         print("Failed to parts the last trading date:", e)
 
@@ -376,17 +411,26 @@ def collect_auction_data(start_date, end_date)->None:
             for date in pd.date_range(start=start_date, end=end_date):
                 date_str = date.strftime("%Y-%m-%d")
                 print(f"Fetching {data_type} for {market} ({sub_market}) data for {date_str}")
-                df_i = scrape_auction(
-                    date_str,
-                    sub_market.replace('_','-'),
-                    data_type,
-                    regions if (data_type == 'prices' and sub_market == 'day_ahead') else regions[:-1] # SYS is not in volumes
-                )
-                if not df_i is None:
+                try:
+                    df_i = scrape_auction(
+                        date_str,
+                        sub_market.replace('_','-'),
+                        data_type,
+                        regions if (data_type == 'prices' and sub_market == 'day_ahead') else regions[:-1] # SYS is not in volumes
+                    )
+                except Exception as e:
+                    # Isolate failures: one bad date/zone must not abort the whole
+                    # run and discard everything else collected for that day.
+                    print(f"ERROR: failed {data_type} for {market}/{sub_market} {date_str}: {e}")
+                    continue
+                if df_i is not None:
                     df = pd.concat([df,df_i])
 
-            temp_index = pd.DatetimeIndex(df['date'])
-            frequency = temp_index.inferred_freq
+            if df.empty:
+                print(f"WARNING: no data collected for {market}/{sub_market}/{data_type}; skipping save")
+                continue
+
+            frequency = infer_frequency_tag(df['date'])
 
             fname = f'./data/{market}/{sub_market}/{data_type}/{datetime.today().strftime("%Y-%m-%d")}_{frequency}.csv'
 
@@ -400,37 +444,45 @@ def collect_intraday_data(start_date, end_date)->None:
     if not os.path.isdir(f"./data/{market}/"):
         os.mkdir(f"./data/{market}/")
 
-        for area in [
-            # "50HZ",
-            "EE","LT","LV", # Baltic
-            "50HZ","AMP","AT","BE","FR","GER","NL","PL","TBW","TTG", # CWE
-            "DK1","DK2","FI","NO1","NO2","NO3","NO4","NO5","SE1","SE2","SE3","SE4" # Nordic
-        ]:
-            time.sleep(10) # to prevent NordPool from blocking the request based on frequency
+    for area in [
+        # "50HZ",
+        "EE","LT","LV", # Baltic
+        "50HZ","AMP","AT","BE","FR","GER","NL","PL","TBW","TTG", # CWE
+        "DK1","DK2","FI","NO1","NO2","NO3","NO4","NO5","SE1","SE2","SE3","SE4" # Nordic
+    ]:
+        time.sleep(10) # to prevent NordPool from blocking the request based on frequency
 
-            df = pd.DataFrame()
+        df = pd.DataFrame()
 
-            for date in pd.date_range(start=start_date, end=end_date):
-                date_str = date.strftime("%Y-%m-%d")
-                print(f"Fetching {market} data for {area} for {date_str}")
+        for date in pd.date_range(start=start_date, end=end_date):
+            date_str = date.strftime("%Y-%m-%d")
+            print(f"Fetching {market} data for {area} for {date_str}")
 
+            try:
                 df_i = scrape_intraday(
                     date_str,'intraday-hourly-statistics',area
                 )
-                if not df_i is None:
-                    df = pd.concat([df,df_i])
+            except Exception as e:
+                # Isolate failures so one area/date can't abort the whole run.
+                print(f"ERROR: failed {market} for {area} {date_str}: {e}")
+                continue
+            if df_i is not None:
+                df = pd.concat([df,df_i])
 
-            if not os.path.isdir(f'./data/{market}/{area}/'):
-                os.mkdir(f'./data/{market}/{area}/')
+        if df.empty:
+            print(f"WARNING: no data collected for {market}/{area}; skipping save")
+            continue
 
-            temp_index = pd.DatetimeIndex(df['date'])
-            frequency = temp_index.inferred_freq
+        if not os.path.isdir(f'./data/{market}/{area}/'):
+            os.mkdir(f'./data/{market}/{area}/')
 
-            fname = f'./data/{market}/{area}/{area}_{datetime.today().strftime("%Y-%m-%d")}_{frequency}.csv'
-            df.to_csv(fname, index=False)
+        frequency = infer_frequency_tag(df['date'])
 
-            print(f"Saved data to {fname}")
-            print("\n")
+        fname = f'./data/{market}/{area}/{area}_{datetime.today().strftime("%Y-%m-%d")}_{frequency}.csv'
+        df.to_csv(fname, index=False)
+
+        print(f"Saved data to {fname}")
+        print("\n")
 
 
 if __name__ == '__main__':

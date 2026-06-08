@@ -5,6 +5,13 @@ on:
       - 'main'
   schedule:
     - cron: '0 12 * * *'
+  workflow_dispatch:        # allow manual runs from the Actions tab
+
+# Stop a slow scrape and the next cron/push run from racing each other on git push.
+concurrency:
+  group: collect-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   create:
     runs-on: ubuntu-latest
@@ -20,12 +27,38 @@ jobs:
         run: curl https://raw.githubusercontent.com/pypa/pipenv/master/get-pipenv.py | python
       - name: collect
         run: pipenv install && pipenv run python main.py
-      - name: Commit new map
+      - name: Commit new data
         run: |
           git config --global user.name 'Collect Bot'
           git config --global user.email 'noreply@nedora.digital'
           git add .
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
           git commit -m "Add data for today"
           git pull -r
           git push
-
+      - name: Verify freshness
+        # Fail loudly if a market/zone silently produced no file today, so a
+        # stall like the 2024-09 intraday outage can't hide behind a green run.
+        run: |
+          TODAY=$(date -u +%Y-%m-%d)
+          missing=0
+          echo "Checking outputs for $TODAY"
+          for sub in day_ahead intraday_auction_1 intraday_auction_2 intraday_auction_3; do
+            for dtype in prices volumes; do
+              ls data/auctions/$sub/$dtype/${TODAY}_*.csv >/dev/null 2>&1 \
+                || { echo "MISSING auction: $sub/$dtype"; missing=1; }
+            done
+          done
+          for area in EE LT LV 50HZ AMP AT BE FR GER NL PL TBW TTG \
+                      DK1 DK2 FI NO1 NO2 NO3 NO4 NO5 SE1 SE2 SE3 SE4; do
+            ls data/intraday/$area/${area}_${TODAY}_*.csv >/dev/null 2>&1 \
+              || { echo "MISSING intraday: $area"; missing=1; }
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "::error::Freshness check failed - some markets/zones produced no file for $TODAY"
+            exit 1
+          fi
+          echo "OK: all expected auction streams and intraday zones present for $TODAY"
